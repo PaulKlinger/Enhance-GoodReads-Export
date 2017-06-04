@@ -5,6 +5,7 @@ import backoff
 import csv
 import datetime
 import dateutil.parser
+import argparse
 from typing import List, NewType, Union, Tuple
 
 AbsoluteUrl = NewType("AbsoluteUrl", str)
@@ -14,10 +15,15 @@ Path = NewType("Path", str)
 
 BOOK_URL = AbsoluteUrl("https://www.goodreads.com/book/show/")
 SIGNIN_URL = AbsoluteUrl("https://www.goodreads.com/user/sign_in")
-EXPORT_FILENAME = Path("export_enhanced.csv")
 
-USER_EMAIL = ""
-USER_PASSWORD = ""
+
+parser = argparse.ArgumentParser(description=
+                                 """Adds genre and (re)reading dates information to a goodreads export file.""")
+parser.add_argument("--csv", required=True)
+parser.add_argument("--email", required=True)
+parser.add_argument("--password", required=True)
+
+options = parser.parse_args()
 
 STANDARD_FIELDNAMES = ["Book Id", "Title", "Author", "Author l-f", "Additional Authors", "ISBN", "ISBN13", "My Rating",
                        "Average Rating", "Publisher", "Binding", "Number of Pages", "Year Published",
@@ -27,7 +33,7 @@ STANDARD_FIELDNAMES = ["Book Id", "Title", "Author", "Author l-f", "Additional A
                        "Original Purchase Location", "Condition", "Condition Description", "BCID"]
 
 
-def sign_in() -> requests.Session:
+def sign_in(email: str, password: str) -> requests.Session:
     session = requests.Session()
     print("Getting login page")
     response = session.get(SIGNIN_URL)
@@ -35,7 +41,7 @@ def sign_in() -> requests.Session:
     auth_token = soup.find(attrs={"name": "authenticity_token"})["value"]
     n_token = soup.find(attrs={"name": "n"})["value"]
 
-    form_data = {"authenticity_token": auth_token, "user[email]": USER_EMAIL, "user[password]": USER_PASSWORD,
+    form_data = {"authenticity_token": auth_token, "user[email]": email, "user[password]": password,
                  "next": "Sign in", "n": n_token, "remember_me": "on", "utf8": "✓"}
     print("Logging in")
     login_response = session.post(SIGNIN_URL, data=form_data)
@@ -121,8 +127,9 @@ def get_genres(soup):
 
 
 def main():
-    books = parse_csv(EXPORT_FILENAME)
-    session = sign_in()
+    options = parser.parse_args()
+    books = parse_csv(options.csv)
+    session = sign_in(options.email, options.password)
 
     books_to_process = [b for b in books if not b.get("genres", None)]
     for i, book in enumerate(books_to_process):
@@ -138,9 +145,8 @@ def main():
         #print(f"read dates: {read_dates}")
         #print(f"genres: {genres}")
 
-        if i % 20 == 0:
+        if i % 20 == 0 or i == len(books_to_process) - 1:
             print("saving csv")
             write_csv(books, STANDARD_FIELDNAMES + ["read_dates", "genres"], "export_enhanced.csv")
-
 
 main()
