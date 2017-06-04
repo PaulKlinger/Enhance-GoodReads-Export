@@ -9,10 +9,9 @@ import argparse
 
 import multiprocessing
 import queue
-import io
 import sys
 
-from typing import List, NewType, Union, Tuple
+from typing import List, NewType, Tuple
 
 AbsoluteUrl = NewType("AbsoluteUrl", str)
 RelativeUrl = NewType("RelativeUrl", str)
@@ -21,7 +20,6 @@ Path = NewType("Path", str)
 
 BOOK_URL = AbsoluteUrl("https://www.goodreads.com/book/show/")
 SIGNIN_URL = AbsoluteUrl("https://www.goodreads.com/user/sign_in")
-
 
 parser = argparse.ArgumentParser(description=
                                  """Adds genre and (re)reading dates information to a GoodReads export file.""")
@@ -33,8 +31,6 @@ parser.add_argument("-f", "--force", action="store_true",
                     help="process all books (by default only those without genre information are processed)")
 
 parser.add_argument("-g", "--gui", action="store_true", help="show GUI")
-
-options = parser.parse_args()
 
 STANDARD_FIELDNAMES = ["Book Id", "Title", "Author", "Author l-f", "Additional Authors", "ISBN", "ISBN13", "My Rating",
                        "Average Rating", "Publisher", "Binding", "Number of Pages", "Year Published",
@@ -295,7 +291,7 @@ def launch_gui():
     stdout_queue = multiprocessing.Queue()
     stdout_queue.cancel_join_thread()
     info = IOText(stdout_queue, frame)
-    info.grid(row=10, column=0, columnspan=10, sticky=tk.N+tk.S+tk.E+tk.W)
+    info.grid(row=10, column=0, columnspan=10, sticky=tk.N + tk.S + tk.E + tk.W)
 
     root.mainloop()
 
