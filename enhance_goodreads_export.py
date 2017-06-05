@@ -7,10 +7,6 @@ import datetime
 import dateutil.parser
 import argparse
 
-import multiprocessing
-import queue
-import sys
-
 from typing import List, NewType, Tuple
 
 AbsoluteUrl = NewType("AbsoluteUrl", str)
@@ -21,23 +17,17 @@ Path = NewType("Path", str)
 BOOK_URL = AbsoluteUrl("https://www.goodreads.com/book/show/")
 SIGNIN_URL = AbsoluteUrl("https://www.goodreads.com/user/sign_in")
 
-parser = argparse.ArgumentParser(description=
-                                 """Adds genre and (re)reading dates information to a GoodReads export file.""")
-parser.add_argument("-c", "--csv", help="path of your GoodReads export file")
-parser.add_argument("-e", "--email", help="the email you use to login to GoodReads")
-parser.add_argument("-p", "--password", help="your GoodReads Password")
-
-parser.add_argument("-f", "--force", action="store_true",
-                    help="process all books (by default only those without genre information are processed)")
-
-parser.add_argument("-g", "--gui", action="store_true", help="show GUI")
-
 STANDARD_FIELDNAMES = ["Book Id", "Title", "Author", "Author l-f", "Additional Authors", "ISBN", "ISBN13", "My Rating",
                        "Average Rating", "Publisher", "Binding", "Number of Pages", "Year Published",
                        "Original Publication Year", "Date Read", "Date Added", "Bookshelves",
                        "Bookshelves with positions", "Exclusive Shelf", "My Review", "Spoiler", "Private Notes",
                        "Read Count", "Recommended For", "Recommended By", "Owned Copies", "Original Purchase Date",
                        "Original Purchase Location", "Condition", "Condition Description", "BCID"]
+
+
+class EnhanceExportException(Exception):
+    def __init__(self, message):
+        self.message = message
 
 
 def sign_in(email: str, password: str) -> requests.Session:
@@ -54,14 +44,14 @@ def sign_in(email: str, password: str) -> requests.Session:
         print("Logging in")
         login_response = session.post(SIGNIN_URL, data=form_data)
         login_response.raise_for_status()
+        if login_response.url == SIGNIN_URL:
+            raise EnhanceExportException("Error logging in, check email / password.")
 
     except requests.RequestException as e:
-        print(f"Error logging in: {e}")
-        sys.exit()
+        raise EnhanceExportException(f"Error logging in: {e}")
 
     except KeyError:
-        print(f"error parsing login page, maybe layout changed?")
-        sys.exit()
+        raise EnhanceExportException(f"error parsing login page, maybe layout changed?")
 
     return session
 
@@ -74,8 +64,7 @@ def parse_csv(filename: Path):
                 raise ValueError("CSV file does not contain the standard fieldnames!")
             return list(reader)
     except (ValueError, csv.Error, IOError) as e:
-        print(f"Error reading export file: {e}")
-        sys.exit()
+        raise EnhanceExportException(f"Error reading export file: {e}")
 
 
 def write_csv(data: List[dict], fieldnames: List[str], filename: Path):
@@ -86,7 +75,7 @@ def write_csv(data: List[dict], fieldnames: List[str], filename: Path):
             writer.writeheader()
             writer.writerows(data)
     except (IOError, csv.Error):
-        print(f"Error writing export file: {e}")
+        raise EnhanceExportException(f"Error writing export file: {e}")
 
 
 @backoff.on_exception(backoff.expo, requests.exceptions.RequestException, max_tries=10)
@@ -173,182 +162,32 @@ def enhance_export(options: dict):
             write_csv(books, STANDARD_FIELDNAMES + ["read_dates", "genres"], options["csv"])
 
 
-class IOQueue(object):  # only used for gui, needs to be defined outside of launch_gui for multiprocessing
-    def __init__(self, queue: queue.Queue):
-        self.queue = queue
-
-    def write(self, text):
-        self.queue.put(text)
-
-    def flush(self):
-        pass
-
-#########################################################################################
-# Workaround for multiprocessing when using pyinstaller to package into one executable
-# see https://github.com/pyinstaller/pyinstaller/wiki/Recipe-Multiprocessing
-#########################################################################################
-import multiprocessing.popen_spawn_win32 as forking
-import os
-
-class _Popen(forking.Popen):
-    def __init__(self, *args, **kw):
-        if hasattr(sys, 'frozen'):
-            # We have to set original _MEIPASS2 value from sys._MEIPASS
-            # to get --onefile mode working.
-            os.putenv('_MEIPASS2', sys._MEIPASS)
-        try:
-            super(_Popen, self).__init__(*args, **kw)
-        finally:
-            if hasattr(sys, 'frozen'):
-                # On some platforms (e.g. AIX) 'os.unsetenv()' is not
-                # available. In those cases we cannot delete the variable
-                # but only set it to the empty string. The bootloader
-                # can handle this case.
-                if hasattr(os, 'unsetenv'):
-                    os.unsetenv('_MEIPASS2')
-                else:
-                    os.putenv('_MEIPASS2', '')
-
-
-# Second override 'Popen' class with our modified version.
-forking.Popen = _Popen
-
-#########################################################################################
-# end of workaround
-#########################################################################################
-
-
-def task(options: dict, stdout_queue: queue.Queue):
-    sys.stdout = IOQueue(stdout_queue)
-    enhance_export(options)
-
-
-def launch_gui():
-    import tkinter as tk
-    from tkinter import ttk
-    from tkinter.filedialog import askopenfilename
-
-    class IOText(ttk.Frame):
-        def __init__(self, text_queue: multiprocessing.Queue, *args, **kwargs):
-            ttk.Frame.__init__(self, *args, **kwargs)
-
-            self.text = tk.Text(self, height=6, width=100)
-            self.vsb = ttk.Scrollbar(self, orient="vertical", command=self.text.yview)
-            self.text.configure(yscrollcommand=self.vsb.set)
-            self.vsb.pack(side="right", fill="y")
-            self.text.pack(side="left", fill="both", expand=True)
-            self.queue = text_queue
-            self.update()
-
-        def update(self):
-            try:
-                text = self.queue.get_nowait()
-            except queue.Empty:
-                text = None
-
-            if text:
-                scroll = False
-                if self.text.dlineinfo('end-1chars') is not None:  # autoscroll if at end
-                    scroll = True
-                self.text.insert("end", text)
-                if scroll:
-                    self.text.see("end")
-
-            self.after(100, self.update)
-
-    def ask_for_filename():
-        filename = askopenfilename()
-        pathlabel.config(text=filename)
-
-    def start_processing():
-        options = {
-            "csv": pathlabel["text"],
-            "force": forceentry.instate(["selected"]),
-            "email": emailentry.get(),
-            "password": passwordentry.get()
-        }
-
-        process = multiprocessing.Process(target=task, args=(options, stdout_queue), daemon=True)
-        process.start()
-
-        def check_if_finished():
-            if process.is_alive():
-                root.after(300, check_if_finished)
-            else:
-                change_all_state(tk.NORMAL)
-
-        change_all_state(tk.DISABLED)
-        check_if_finished()
-
-    def change_all_state(new_state):
-        filebutton["state"] = new_state
-        emailentry["state"] = new_state
-        passwordentry["state"] = new_state
-        forceentry["state"] = new_state
-        if new_state == tk.NORMAL:
-            forceentry.state(["!alternate", "!selected"])
-        start_button["state"] = new_state
-
-    root = tk.Tk()
-    root.wm_title("Enhance GoodReads Export Tool")
-    frame = ttk.Frame(root, padding="3m")
-    frame.pack(fill=tk.BOTH)
-    filebutton = ttk.Button(frame, text="export file", command=ask_for_filename)
-    filebutton.grid(row=0, column=0)
-    pathlabel = ttk.Label(frame, anchor=tk.W)
-    pathlabel.grid(row=0, column=1, columnspan=10, sticky=tk.W)
-
-    emaillabel = ttk.Label(frame, text="email:")
-    emailentry = ttk.Entry(frame)
-    emaillabel.grid(row=1, column=0)
-    emailentry.grid(row=1, column=1)
-    passwordlabel = ttk.Label(frame, text="password")
-    passwordentry = ttk.Entry(frame)
-    passwordlabel.grid(row=2, column=0)
-    passwordentry.grid(row=2, column=1)
-    forcelabel = ttk.Label(frame, text="process all")
-    forceentry = ttk.Checkbutton(frame)
-    forceentry.state(["!alternate", "!selected"])
-    forcehelp = ttk.Label(frame, text="(by default only books without genre information are processed)")
-    forcelabel.grid(row=3, column=0)
-    forceentry.grid(row=3, column=1)
-    forcehelp.grid(row=3, column=2)
-
-    start_button = ttk.Button(frame, text="start processing", command=start_processing)
-    start_button.grid(row=4, column=0, columnspan=2, pady=5)
-
-    frame.grid_columnconfigure(0, weight=0)
-    frame.grid_columnconfigure(1, weight=0)
-    frame.grid_columnconfigure(2, weight=0)
-    frame.grid_columnconfigure(3, weight=1)
-
-    stdout_queue = multiprocessing.Queue()
-    stdout_queue.cancel_join_thread()
-    info = IOText(stdout_queue, frame)
-    info.grid(row=10, column=0, columnspan=10, sticky=tk.N + tk.S + tk.E + tk.W)
-
-    root.mainloop()
-
-
 def main():
-    options = vars(parser.parse_args())
+    argument_parser = argparse.ArgumentParser(
+        description="""Adds genre and (re)reading dates information to a GoodReads export file.""")
+    argument_parser.add_argument("-c", "--csv", help="path of your GoodReads export file")
+    argument_parser.add_argument("-e", "--email", help="the email you use to login to GoodReads")
+    argument_parser.add_argument("-p", "--password", help="your GoodReads Password")
 
-    # if all(not v for v in options.values()): # for windows executable version
-    if options["gui"]:
-        launch_gui()
-        return
+    argument_parser.add_argument(
+        "-f", "--force", action="store_true",
+        help="process all books (by default only those without genre information are processed)")
+
+    argument_parser.add_argument("-g", "--gui", action="store_true", help="show GUI")
+
+    options = vars(argument_parser.parse_args())
 
     if not all((options["email"], options["password"], options["csv"])):
         print("You need to provide the path to the export file, an email address and a password!")
-        parser.print_help()
+        print()
+        argument_parser.print_help()
         return
 
-    enhance_export(options)
+    try:
+        enhance_export(options)
+    except EnhanceExportException as e:
+        print(e.message)
 
 
 if __name__ == "__main__":
-    # Workaround for multiprocessing when using pyinstaller
-    # see https://github.com/pyinstaller/pyinstaller/wiki/Recipe-Multiprocessing
-    multiprocessing.freeze_support()
-
     main()
