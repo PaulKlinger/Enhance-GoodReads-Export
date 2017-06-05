@@ -170,7 +170,7 @@ def enhance_export(options: dict):
 
         if i % 20 == 0 or i == len(books_to_process) - 1:
             print("saving csv")
-            write_csv(books, STANDARD_FIELDNAMES + ["read_dates", "genres"], "export_enhanced.csv")
+            write_csv(books, STANDARD_FIELDNAMES + ["read_dates", "genres"], options["csv"])
 
 
 class IOQueue(object):  # only used for gui, needs to be defined outside of launch_gui for multiprocessing
@@ -182,6 +182,40 @@ class IOQueue(object):  # only used for gui, needs to be defined outside of laun
 
     def flush(self):
         pass
+
+#########################################################################################
+# Workaround for multiprocessing when using pyinstaller to package into one executable
+# see https://github.com/pyinstaller/pyinstaller/wiki/Recipe-Multiprocessing
+#########################################################################################
+import multiprocessing.popen_spawn_win32 as forking
+import os
+
+class _Popen(forking.Popen):
+    def __init__(self, *args, **kw):
+        if hasattr(sys, 'frozen'):
+            # We have to set original _MEIPASS2 value from sys._MEIPASS
+            # to get --onefile mode working.
+            os.putenv('_MEIPASS2', sys._MEIPASS)
+        try:
+            super(_Popen, self).__init__(*args, **kw)
+        finally:
+            if hasattr(sys, 'frozen'):
+                # On some platforms (e.g. AIX) 'os.unsetenv()' is not
+                # available. In those cases we cannot delete the variable
+                # but only set it to the empty string. The bootloader
+                # can handle this case.
+                if hasattr(os, 'unsetenv'):
+                    os.unsetenv('_MEIPASS2')
+                else:
+                    os.putenv('_MEIPASS2', '')
+
+
+# Second override 'Popen' class with our modified version.
+forking.Popen = _Popen
+
+#########################################################################################
+# end of workaround
+#########################################################################################
 
 
 def task(options: dict, stdout_queue: queue.Queue):
@@ -313,4 +347,8 @@ def main():
 
 
 if __name__ == "__main__":
+    # Workaround for multiprocessing when using pyinstaller
+    # see https://github.com/pyinstaller/pyinstaller/wiki/Recipe-Multiprocessing
+    multiprocessing.freeze_support()
+
     main()
