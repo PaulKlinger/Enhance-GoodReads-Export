@@ -18,7 +18,6 @@ Usage instructions for the command line version (output of "python enhance_goodr
 
 ```commandline
 usage: enhance_goodreads_export.py [-h] [-c CSV] [-e EMAIL] [-p PASSWORD] [-f]
-                                   [-g]
 
 Adds genre and (re)reading dates information to a GoodReads export file.
 
@@ -31,7 +30,6 @@ optional arguments:
                         your GoodReads Password
   -f, --force           process all books (by default only those without genre
                         information are processed)
-  -g, --gui             show GUI
 ```
 
 The tool adds two additional columns to the .csv file: "read_dates" and "genres"
