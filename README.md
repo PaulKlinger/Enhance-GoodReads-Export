@@ -5,14 +5,14 @@ A small tool to add additional data to a GoodReads library export file (.csv) by
 Currently adds reading dates (start and finish, including re-readings) and genres.
 
 When analyzing the export file in [Bookstats](https://almoturg.com/bookstats/) this data is used to show
-additional / more accurate graphs (e.g. favorite genres, better pages / day stats,...)
+additional / more accurate graphs (e.g. favorite genres, better pages / day stats,...).
 
 Currently only works with separate GoodReads login (i.e. email and password, not via e.g. facebook).
 
 **[For Windows users there is a standalone executable version with a graphical user interface.](https://github.com/PaulKlinger/Enhance-GoodReads-Export/releases/download/v0.1/enhance_goodreads_export.exe)**
 
-All others can use the script ("enhance_goodreads_export.py") directly. The necessary dependencies are given in
-"requirements.txt".
+All others can use the script ("enhance_goodreads_export.py") directly. This requires python 3.6 and the
+dependencies specified in "requirements.txt".
 
 Usage instructions for the command line version (output of "python enhance_goodreads_export.py --help"):
 
