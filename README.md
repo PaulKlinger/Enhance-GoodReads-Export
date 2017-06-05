@@ -1,9 +1,12 @@
 # Enhance GoodReads Export
 
 A small tool to add additional data to a GoodReads library export file (.csv) by parsing the website.
-Currently adds reading dates (start and finish, including re-readings) and genres
+
+Currently adds reading dates (start and finish, including re-readings) and genres.
+
 When analyzing the export file in [Bookstats](https://almoturg.com/bookstats/) this data is used to show
 additional / more accurate graphs (e.g. favorite genres, better pages / day stats,...)
+
 Currently only works with separate GoodReads login (i.e. email and password, not via e.g. facebook).
 
 **[For Windows users there is a standalone executable version with a graphical user interface.](https://github.com/PaulKlinger/Enhance-GoodReads-Export/releases/download/v0.1/enhance_goodreads_export.exe)**
