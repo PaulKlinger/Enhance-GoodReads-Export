@@ -298,6 +298,8 @@ def launch_gui():
 
 def main():
     options = vars(parser.parse_args())
+
+    # if all(not v for v in options.values()): # for windows executable version
     if options["gui"]:
         launch_gui()
         return
