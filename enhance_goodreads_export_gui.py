@@ -98,9 +98,14 @@ def launch_gui():
         filename = askopenfilename()
         pathlabel.config(text=filename)
 
+    def ask_for_update_filename():
+        filename = askopenfilename()
+        update_pathlabel.config(text=filename)
+
     def start_processing():
         options = {
             "csv": pathlabel["text"],
+            "update": update_pathlabel["text"],
             "force": forceentry.instate(["selected"]),
             "email": emailentry.get(),
             "password": passwordentry.get()
@@ -120,6 +125,7 @@ def launch_gui():
 
     def change_all_state(new_state):
         filebutton["state"] = new_state
+        update_filebutton["state"] = new_state
         emailentry["state"] = new_state
         passwordentry["state"] = new_state
         forceentry["state"] = new_state
@@ -133,28 +139,33 @@ def launch_gui():
     frame = ttk.Frame(root, padding="3m")
     frame.pack(fill=tk.BOTH)
     filebutton = ttk.Button(frame, text="export file", command=ask_for_filename)
-    filebutton.grid(row=0, column=0)
-    pathlabel = ttk.Label(frame, anchor=tk.W)
+    filebutton.grid(row=0, column=0, sticky=tk.W)
+    pathlabel = ttk.Label(frame, anchor=tk.W, text="[Goodreads export file, new columns will be added to this file]")
     pathlabel.grid(row=0, column=1, columnspan=10, sticky=tk.W)
+
+    update_filebutton = ttk.Button(frame, text="old file", command=ask_for_update_filename)
+    update_filebutton.grid(row=1, column=0)
+    update_pathlabel = ttk.Label(frame, anchor=tk.W, text="[previously enhanced file to copy values from (optional)]")
+    update_pathlabel.grid(row=1, column=1, columnspan=10, sticky=tk.W)
 
     emaillabel = ttk.Label(frame, text="email:")
     emailentry = ttk.Entry(frame)
-    emaillabel.grid(row=1, column=0)
-    emailentry.grid(row=1, column=1)
+    emaillabel.grid(row=2, column=0)
+    emailentry.grid(row=2, column=1)
     passwordlabel = ttk.Label(frame, text="password")
     passwordentry = ttk.Entry(frame)
-    passwordlabel.grid(row=2, column=0)
-    passwordentry.grid(row=2, column=1)
+    passwordlabel.grid(row=3, column=0)
+    passwordentry.grid(row=3, column=1)
     forcelabel = ttk.Label(frame, text="process all")
     forceentry = ttk.Checkbutton(frame)
     forceentry.state(["!alternate", "!selected"])
     forcehelp = ttk.Label(frame, text="(by default only books without genre information are processed)")
-    forcelabel.grid(row=3, column=0)
-    forceentry.grid(row=3, column=1)
-    forcehelp.grid(row=3, column=2)
+    forcelabel.grid(row=4, column=0)
+    forceentry.grid(row=4, column=1)
+    forcehelp.grid(row=4, column=2)
 
     start_button = ttk.Button(frame, text="start processing", command=start_processing)
-    start_button.grid(row=4, column=0, columnspan=2, pady=5)
+    start_button.grid(row=5, column=0, columnspan=2, pady=5)
 
     frame.grid_columnconfigure(0, weight=0)
     frame.grid_columnconfigure(1, weight=0)
