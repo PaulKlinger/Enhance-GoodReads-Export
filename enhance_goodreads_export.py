@@ -145,7 +145,17 @@ def get_genres(soup):
 def enhance_export(options: dict):
     books = parse_csv(options["csv"])
     session = sign_in(options["email"], options["password"])
-    books_to_process = [b for b in books if (options["force"] or not b.get("genres", None))]
+    if options["update"]:
+        old_books_by_id = {b["Book Id"]: b for b in parse_csv(options["update"])}
+        for b in books:
+            # Update read_dates and genres from the old file for books that didn't change shelf and weren't re-read.
+            ob = old_books_by_id.get(b["Book Id"], None)
+            if ob and ob["Exclusive Shelf"] == b["Exclusive Shelf"] and ob["Date Read"] == b["Date Read"]:
+                b["read_dates"] = old_books_by_id[b["Book Id"]]["read_dates"]
+                b["genres"] = old_books_by_id[b["Book Id"]]["genres"]
+
+    books_to_process = [b for b in books if (options["force"] or (not b.get("genres", None)
+                                                                  and not b.get("read_dates", None)))]
     for i, book in enumerate(books_to_process):
         print(f"Book {i+1} of {len(books_to_process)}: {book['Title']} ({book['Author']})")
         page = get_with_retry(session, make_book_url(book["Book Id"]))
@@ -165,7 +175,11 @@ def enhance_export(options: dict):
 def main():
     argument_parser = argparse.ArgumentParser(
         description="""Adds genre and (re)reading dates information to a GoodReads export file.""")
-    argument_parser.add_argument("-c", "--csv", help="path of your GoodReads export file")
+    argument_parser.add_argument("-c", "--csv", help="path of your GoodReads export file (the new columns will be "
+                                                     "added to this file)")
+    argument_parser.add_argument("-u", "--update", help="(optional) path of previously enhanced GoodReads export file "
+                                                        "to update (output will still be written to the file "
+                                                        "specified in --csv)")
     argument_parser.add_argument("-e", "--email", help="the email you use to login to GoodReads")
     argument_parser.add_argument("-p", "--password", help="your GoodReads Password")
 
