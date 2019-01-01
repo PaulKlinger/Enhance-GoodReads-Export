@@ -104,8 +104,8 @@ def launch_gui():
 
     def start_processing():
         options = {
-            "csv": pathlabel["text"],
-            "update": update_pathlabel["text"],
+            "csv": pathlabel["text"] if not pathlabel["text"].startswith("[") else "",
+            "update": update_pathlabel["text"] if not update_pathlabel["text"].startswith("[") else "",
             "force": forceentry.instate(["selected"]),
             "email": emailentry.get(),
             "password": passwordentry.get()
