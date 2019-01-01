@@ -15,6 +15,7 @@ IsoDateStr = NewType("IsoDateStr", str)
 Path = NewType("Path", str)
 
 BOOK_URL = AbsoluteUrl("https://www.goodreads.com/book/show/")
+BASE_URL = AbsoluteUrl("https://www.goodreads.com")
 SIGNIN_URL = AbsoluteUrl("https://www.goodreads.com/user/sign_in")
 
 STANDARD_FIELDNAMES = ["Book Id", "Title", "Author", "Author l-f", "Additional Authors", "ISBN", "ISBN13", "My Rating",
@@ -89,11 +90,12 @@ def make_book_url(book_id: str) -> AbsoluteUrl:
     return AbsoluteUrl(urllib.parse.urljoin(BOOK_URL, book_id))
 
 
+def make_review_url(review_link: str) -> AbsoluteUrl:
+    return AbsoluteUrl(urllib.parse.urljoin(BASE_URL, review_link))
+
+
 def get_read_dates(soup: BeautifulSoup) -> List[Tuple[datetime.datetime, datetime.datetime]]:
-    allReadingSessions = soup.find(id="allReadingSessions")
-    if allReadingSessions is None:
-        return []
-    timeline = allReadingSessions.find(class_="readingTimeline")
+    timeline = soup.find(class_="readingTimeline")
     if timeline is None:
         print("Error finding read dates, skipping.")
         return []
@@ -116,7 +118,6 @@ def get_read_dates(soup: BeautifulSoup) -> List[Tuple[datetime.datetime, datetim
         if (state is not None) and (date is not None):
             status_updates.append((date, state))
 
-    status_updates.reverse()
     date_started = None
     readings = []
     for date, state in status_updates:
@@ -160,12 +161,18 @@ def enhance_export(options: dict):
         print(f"Book {i+1} of {len(books_to_process)}: {book['Title']} ({book['Author']})")
         page = get_with_retry(session, make_book_url(book["Book Id"]))
         soup = BeautifulSoup(page.content, 'html.parser')
-        read_dates = get_read_dates(soup)
         genres = get_genres(soup)
-
-        book["read_dates"] = ";".join(",".join(d.strftime("%Y-%m-%d") if d else "" for d in reading)
-                                      for reading in read_dates)
         book["genres"] = ";".join(f"{','.join(genre[0])}|{genre[1]}" for genre in genres)
+        book["read_dates"] = ""
+        review_link = soup.find("a", string="My Activity")["href"]
+        if review_link:
+            review_page = get_with_retry(session, make_review_url(review_link))
+            review_soup = BeautifulSoup(review_page.content, 'html.parser')
+            read_dates = get_read_dates(review_soup)
+            book["read_dates"] = ";".join(",".join(d.strftime("%Y-%m-%d") if d else "" for d in reading)
+                                          for reading in read_dates)
+        else:
+            print(f"Error: Can't find link to review.")
 
         if i % 20 == 0 or i == len(books_to_process) - 1:
             print("saving csv")
