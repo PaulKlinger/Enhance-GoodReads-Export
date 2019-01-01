@@ -198,6 +198,11 @@ def main():
 
     options = vars(argument_parser.parse_args())
 
+    if options["gui"]:
+        from enhance_goodreads_export_gui import launch_gui
+        launch_gui()
+        return
+
     if not all((options["email"], options["password"], options["csv"])):
         print("You need to provide the path to the export file, an email address and a password!")
         print()
