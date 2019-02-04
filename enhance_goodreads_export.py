@@ -112,7 +112,14 @@ def get_read_dates(soup: BeautifulSoup) -> List[Tuple[datetime.datetime, datetim
                 state = "start"
             else:
                 try:
-                    date = dateutil.parser.parse(line)
+                    # dateutil.parser replaces undetermined fields with those in the default.
+                    # this way dates which just give the year (e.g. "2007") are set to e.g. "2007-01-01".
+                    # Without this they would be set to the current day and month in the given year.
+                    # This is usefull as dates on the first of january can be automatically distributed over the year
+                    # in bookstats.
+                    # (Might be useful to handle these differently but afaik goodreads previously automatically set
+                    # "2007" to "2007-01-01", so could be tricky.)
+                    date = dateutil.parser.parse(line, default=datetime.datetime(1900, 1, 1))
                 except ValueError:
                     continue
         if (state is not None) and (date is not None):
