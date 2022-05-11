@@ -1,12 +1,12 @@
 import multiprocessing
 import queue
 import sys
-
 import tkinter as tk
 from tkinter import ttk
 from tkinter.filedialog import askopenfilename
 
-from enhance_goodreads_export import enhance_export, EnhanceExportException
+from enhance_goodreads_export import enhance_export
+from enhance_goodreads_export import EnhanceExportException
 
 
 class IOQueue(object):
@@ -21,7 +21,7 @@ class IOQueue(object):
 
 
 def task(options: dict, stdout_queue: queue.Queue):
-    sys.stdout = IOQueue(stdout_queue)
+    sys.stdout = IOQueue(stdout_queue)  # type: ignore
     try:
         enhance_export(options)
     except EnhanceExportException as e:
@@ -48,7 +48,7 @@ class IOText(ttk.Frame):
 
         if text:
             scroll = False
-            if self.text.dlineinfo('end-1chars') is not None:  # autoscroll if at end
+            if self.text.dlineinfo("end-1chars") is not None:  # autoscroll if at end
                 scroll = True
             self.text.insert("end", text)
             if scroll:
@@ -69,13 +69,17 @@ def launch_gui():
     def start_processing():
         options = {
             "csv": pathlabel["text"] if not pathlabel["text"].startswith("[") else "",
-            "update": update_pathlabel["text"] if not update_pathlabel["text"].startswith("[") else "",
+            "update": update_pathlabel["text"]
+            if not update_pathlabel["text"].startswith("[")
+            else "",
             "force": forceentry.instate(["selected"]),
             "email": emailentry.get(),
-            "password": passwordentry.get()
+            "password": passwordentry.get(),
         }
 
-        process = multiprocessing.Process(target=task, args=(options, stdout_queue), daemon=True)
+        process = multiprocessing.Process(
+            target=task, args=(options, stdout_queue), daemon=True
+        )
         process.start()
 
         def check_if_finished():
@@ -104,12 +108,22 @@ def launch_gui():
     frame.pack(fill=tk.BOTH)
     filebutton = ttk.Button(frame, text="export file", command=ask_for_filename)
     filebutton.grid(row=0, column=0, sticky=tk.W)
-    pathlabel = ttk.Label(frame, anchor=tk.W, text="[Goodreads export file, new columns will be added to this file]")
+    pathlabel = ttk.Label(
+        frame,
+        anchor=tk.W,
+        text="[Goodreads export file, new columns will be added to this file]",
+    )
     pathlabel.grid(row=0, column=1, columnspan=10, sticky=tk.W)
 
-    update_filebutton = ttk.Button(frame, text="old file", command=ask_for_update_filename)
+    update_filebutton = ttk.Button(
+        frame, text="old file", command=ask_for_update_filename
+    )
     update_filebutton.grid(row=1, column=0)
-    update_pathlabel = ttk.Label(frame, anchor=tk.W, text="[previously enhanced file to copy values from (optional)]")
+    update_pathlabel = ttk.Label(
+        frame,
+        anchor=tk.W,
+        text="[previously enhanced file to copy values from (optional)]",
+    )
     update_pathlabel.grid(row=1, column=1, columnspan=10, sticky=tk.W)
 
     emaillabel = ttk.Label(frame, text="email:")
@@ -123,7 +137,9 @@ def launch_gui():
     forcelabel = ttk.Label(frame, text="process all")
     forceentry = ttk.Checkbutton(frame)
     forceentry.state(["!alternate", "!selected"])
-    forcehelp = ttk.Label(frame, text="(by default only books without genre information are processed)")
+    forcehelp = ttk.Label(
+        frame, text="(by default only books without genre information are processed)"
+    )
     forcelabel.grid(row=4, column=0)
     forceentry.grid(row=4, column=1)
     forcehelp.grid(row=4, column=2)
