@@ -1,4 +1,7 @@
 # See https://help.github.com/ignore-files/ for more about ignoring files.
-
+/stuff
+/env
+__pycache__/
+/dist
 # IDE files
 /.idea
