@@ -1,10 +1,10 @@
 import argparse
 import csv
 import datetime
+import re
 import urllib.parse
 from typing import NewType
 from typing import Optional
-from typing import Tuple
 
 import backoff
 import dateutil.parser
@@ -12,14 +12,19 @@ import requests
 from bs4 import BeautifulSoup
 from bs4 import Tag
 
+from metadata import encrypt_metadata
+from metadata import meta_goodreads_desktop
+
 AbsoluteUrl = NewType("AbsoluteUrl", str)
 RelativeUrl = NewType("RelativeUrl", str)
 IsoDateStr = NewType("IsoDateStr", str)
 Path = NewType("Path", str)
 
+USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.54 Safari/537.36"
 BOOK_URL = AbsoluteUrl("https://www.goodreads.com/book/show/")
 BASE_URL = AbsoluteUrl("https://www.goodreads.com")
 SIGNIN_URL = AbsoluteUrl("https://www.goodreads.com/user/sign_in")
+SIGNIN_POST_URL = AbsoluteUrl("https://www.goodreads.com/ap/signin")
 
 STANDARD_FIELDNAMES = [
     "Book Id",
@@ -61,41 +66,109 @@ class EnhanceExportException(Exception):
         self.message = message
 
 
+# Many thanks to mkb79 for his Audible library,
+# the login code there was a great help
+# https://github.com/mkb79/Audible/blob/master/src/audible/login.py
+
+
+def get_next_action_from_soup(
+    soup: BeautifulSoup, search_field: Optional[dict[str, str]] = None
+) -> tuple[str, str]:
+    search_field = search_field or {"name": "signIn"}
+    form = soup.find("form", search_field) or soup.find("form")
+    assert isinstance(form, Tag)
+    method = form.get("method", "GET")
+    url = form["action"]
+    assert isinstance(url, str)
+    assert isinstance(method, str)
+    return method, url
+
+
+def get_inputs_from_soup(
+    soup: BeautifulSoup, search_field: Optional[dict[str, str]] = None
+) -> dict[str, str]:
+    """Extracts hidden form input fields from a Amazon login page."""
+
+    search_field = search_field or {"name": "signIn"}
+    form = soup.find("form", search_field) or soup.find("form")
+    assert isinstance(form, Tag)
+    inputs = {}
+    for field in form.find_all("input"):
+        try:
+            inputs[field["name"]] = ""
+            if field["type"] and field["type"] == "hidden":
+                inputs[field["name"]] = field["value"]
+        except BaseException:
+            pass
+    return inputs
+
+
 def sign_in(email: str, password: str) -> requests.Session:
     try:
         session = requests.Session()
+        session.headers.update(
+            {
+                "User-Agent": USER_AGENT,
+                "Accept-Language": "en-US",
+                "Accept-Encoding": "gzip",
+            }
+        )
         print("Getting login page")
         response = session.get(SIGNIN_URL)
         soup = BeautifulSoup(response.content, "html.parser")
+        email_signin_link = soup.find(
+            href=re.compile(r"https://www\.goodreads\.com/ap/signin.*")
+        )
+        assert isinstance(email_signin_link, Tag), "did not find email signin link!"
+        email_signin_url = email_signin_link["href"]
+        assert isinstance(email_signin_link, str)
 
-        auth_token_tag = soup.find(attrs={"name": "authenticity_token"})
-        assert isinstance(auth_token_tag, Tag), "Did not find auth token!"
-        auth_token = auth_token_tag["value"]
+        print(f"Getting email login page {email_signin_url}")
+        response = session.get(email_signin_url)
+        while True:
+            soup = BeautifulSoup(response.content, "html.parser")
+            if auth_error_tag := soup.find(id="auth-error-message-box"):
+                print(auth_error_tag)
 
-        n_token_tag = soup.find(attrs={"name": "n"})
-        assert isinstance(n_token_tag, Tag), "Did not find n token!"
-        n_token = n_token_tag["value"]
+            magic_values = get_inputs_from_soup(soup)
 
-        form_data = {
-            "authenticity_token": auth_token,
-            "user[email]": email,
-            "user[password]": password,
-            "next": "Sign in",
-            "n": n_token,
-            "remember_me": "on",
-            "utf8": "✓",
-        }
-        print("Logging in")
-        login_response = session.post(SIGNIN_URL, data=form_data)
-        login_response.raise_for_status()
-        if login_response.url == SIGNIN_URL:
-            raise EnhanceExportException("Error logging in, check email / password.")
+            if capt_img := soup.find("img", alt=lambda x: x and "CAPTCHA" in x):
+                with open("captcha.jpg", "wb") as f:
+                    f.write(requests.get(capt_img["src"]).content)
+
+                magic_values["guess"] = str(input("captcha value:")).strip().lower()
+                magic_values["use_image_captcha"] = "true"
+                magic_values["use_audio_captcha"] = "false"
+                magic_values["showPasswordChecked"] = "false"
+
+            form_data = {
+                **magic_values,
+                "email": email,
+                "password": password,
+                "create": "0",
+                "encryptedPasswordExpected": "",
+                "metadata1": encrypt_metadata(
+                    meta_goodreads_desktop(USER_AGENT, email_signin_url)
+                ),
+            }
+            print("Logging in")
+            print(form_data)
+
+            method, url = get_next_action_from_soup(soup)
+
+            response = session.request(method=method, url=url, data=form_data)
+            response.raise_for_status()
+
+            if not response.url.startswith(SIGNIN_POST_URL):
+                break
 
     except requests.RequestException as e:
         raise EnhanceExportException(f"Error logging in: {e}")
 
-    except KeyError:
-        raise EnhanceExportException(f"error parsing login page, maybe layout changed?")
+    except (KeyError, AssertionError) as e:
+        raise EnhanceExportException(
+            f"error parsing login page, maybe layout changed? {e}"
+        )
 
     return session
 
