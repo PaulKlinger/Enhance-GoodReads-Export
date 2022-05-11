@@ -1,4 +1,5 @@
-python-dateutil
-backoff
-BeautifulSoup4
-requests
+python-dateutil == 2.8.2
+backoff == 2.0.1
+BeautifulSoup4 == 4.11.1
+requests == 2.27.1
+pyinstaller == 5.0.1
