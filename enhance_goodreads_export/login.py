@@ -19,7 +19,7 @@ from .metadata1 import meta_goodreads_desktop
 
 
 def human_cli_captcha_solver(captcha_data: bytes) -> str:
-    with open("captcha.jpg", "wb") as f:
+    with open("captcha.png", "wb") as f:
         f.write(captcha_data)
     print("Captcha saved to current directory ('captcha.jpg').")
     return input("Please enter the characters in the captcha:").strip().lower()
