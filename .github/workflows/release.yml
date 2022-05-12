@@ -13,7 +13,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r requirements/requirements-dev.txt
       - name: Package exe
         run: |
           pyinstaller -F --noconsole .\enhance_export_gui.py
