@@ -1,4 +1,3 @@
-from collections.abc import Callable
 from typing import Optional
 
 import requests
@@ -8,6 +7,7 @@ from bs4 import Tag
 from .config import SIGNIN_POST_URL
 from .config import SIGNIN_URL
 from .config import USER_AGENT
+from .entities import CaptchaSolver
 from .entities import EnhanceExportException
 from .metadata1 import encrypt_metadata
 from .metadata1 import meta_goodreads_desktop
@@ -58,7 +58,7 @@ def get_inputs_from_soup(
 
 
 def login(
-    email: str, password: str, captcha_solver: Optional[Callable[[bytes], str]] = None
+    email: str, password: str, captcha_solver: Optional[CaptchaSolver] = None
 ) -> requests.Session:
     if captcha_solver is None:
         captcha_solver = human_cli_captcha_solver
@@ -93,7 +93,9 @@ def login(
                     capt_img["src"], str
                 ), "Failed to find captcha url"
                 captcha_data = requests.get(capt_img["src"]).content
+                print("Found captcha, asking for solution")
                 captcha_guess = captcha_solver(captcha_data)
+                print(f"Got captcha guess: '{captcha_guess}'")
                 magic_values["guess"] = captcha_guess
                 magic_values["use_image_captcha"] = "true"
                 magic_values["use_audio_captcha"] = "false"
@@ -110,7 +112,6 @@ def login(
                 ),
             }
             print("Logging in")
-            print(form_data)
 
             method, url = get_next_action_from_soup(soup)
 

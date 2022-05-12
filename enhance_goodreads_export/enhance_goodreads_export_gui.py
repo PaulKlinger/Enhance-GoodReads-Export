@@ -1,9 +1,14 @@
+import functools
+import io
 import multiprocessing
 import queue
 import sys
 import tkinter as tk
 from tkinter import ttk
 from tkinter.filedialog import askopenfilename
+
+from PIL import Image
+from PIL import ImageTk
 
 from .enhance_goodreads_export import enhance_export
 from .entities import EnhanceExportException
@@ -20,16 +25,32 @@ class IOQueue(object):
         pass
 
 
-def human_tk_captcha_solver(captcha_data: bytes) -> str:
-    with open("captcha.jpg", "wb") as f:
-        f.write(captcha_data)
-    return input("Please enter the characters in the captcha:").strip().lower()
+def human_tk_captcha_solver(
+    captcha_data: bytes,
+    captcha_data_queue: queue.Queue,
+    captcha_guess_queue: queue.Queue,
+) -> str:
+    captcha_data_queue.put(captcha_data)
+    return captcha_guess_queue.get(block=True)
 
 
-def task(options: dict, stdout_queue: queue.Queue):
+def task(
+    options: dict,
+    stdout_queue: queue.Queue,
+    captcha_data_queue: queue.Queue,
+    captcha_guess_queue: queue.Queue,
+):
     sys.stdout = IOQueue(stdout_queue)  # type: ignore
+
     try:
-        enhance_export(options)
+        enhance_export(
+            options,
+            captcha_solver=functools.partial(
+                human_tk_captcha_solver,
+                captcha_data_queue=captcha_data_queue,
+                captcha_guess_queue=captcha_guess_queue,
+            ),
+        )
     except EnhanceExportException as e:
         print(e.message)
 
@@ -126,6 +147,38 @@ class EnhanceExportGui(tk.Tk):
         info = IOText(self.stdout_queue, self.frame)
         info.grid(row=10, column=0, columnspan=10, sticky=tk.N + tk.S + tk.E + tk.W)
 
+        self.captcha_data_queue = multiprocessing.Queue()
+        self.captcha_guess_queue = multiprocessing.Queue()
+
+    def submit_captcha(self):
+        captcha_guess = self.toplevel_captcha_guess_input.get()
+        self.captcha_guess_queue.put(captcha_guess)
+        self.wm_attributes("-disabled", False)
+        self.toplevel_dialog.destroy()
+        self.deiconify()
+
+    def captcha_window(self, captcha_data: bytes) -> None:
+        self.wm_attributes("-disabled", True)
+        self.toplevel_dialog = tk.Toplevel(self)
+        self.toplevel_dialog.minsize(300, 100)
+        self.toplevel_dialog.transient(self)
+        self.toplevel_dialog.protocol("WM_DELETE_WINDOW", self.submit_captcha)
+
+        self.img = ImageTk.PhotoImage(Image.open(io.BytesIO(captcha_data)))
+        self.toplevel_captcha = tk.Label(self.toplevel_dialog, image=self.img)
+        self.toplevel_captcha.pack(side="top", fill="both", expand=True)
+
+        self.toplevel_submit = ttk.Button(
+            self.toplevel_dialog, text="Submit", command=self.submit_captcha
+        )
+        self.toplevel_submit.pack(side="bottom")
+        self.toplevel_captcha_guess_input = ttk.Entry(self.toplevel_dialog)
+        self.toplevel_captcha_guess_input.pack(side="bottom")
+        self.toplevel_dialog_label = ttk.Label(
+            self.toplevel_dialog, text="Please enter the characters shown above"
+        )
+        self.toplevel_dialog_label.pack(side="bottom")
+
     def ask_for_filename(self) -> None:
         filename = askopenfilename()
         self.pathlabel.config(text=filename)
@@ -148,18 +201,31 @@ class EnhanceExportGui(tk.Tk):
         }
 
         process = multiprocessing.Process(
-            target=task, args=(options, self.stdout_queue), daemon=True
+            target=task,
+            args=(
+                options,
+                self.stdout_queue,
+                self.captcha_data_queue,
+                self.captcha_guess_queue,
+            ),
+            daemon=True,
         )
         process.start()
 
-        def check_if_finished():
+        def check_if_finished_or_captcha():
             if process.is_alive():
-                self.after(300, check_if_finished)
+                try:
+                    captcha_data = self.captcha_data_queue.get_nowait()
+                except queue.Empty:
+                    pass
+                else:
+                    self.captcha_window(captcha_data)
+                self.after(300, check_if_finished_or_captcha)
             else:
                 self.change_all_state(tk.NORMAL)
 
         self.change_all_state(tk.DISABLED)
-        check_if_finished()
+        check_if_finished_or_captcha()
 
     def change_all_state(self, new_state) -> None:
         self.filebutton["state"] = new_state

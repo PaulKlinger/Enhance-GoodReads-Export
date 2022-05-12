@@ -13,6 +13,7 @@ from .config import BASE_URL
 from .config import BOOK_URL
 from .config import STANDARD_FIELDNAMES
 from .entities import AbsoluteUrl
+from .entities import CaptchaSolver
 from .entities import EnhanceExportException
 from .entities import Path
 from .login import login
@@ -122,9 +123,11 @@ def get_genres(soup):
     return genres
 
 
-def enhance_export(options: dict):
+def enhance_export(options: dict, captcha_solver: Optional[CaptchaSolver] = None):
     books = parse_csv(options["csv"])
-    session = login(options["email"], options["password"])
+    session = login(
+        options["email"], options["password"], captcha_solver=captcha_solver
+    )
     if options["update"]:
         old_books_by_id = {b["Book Id"]: b for b in parse_csv(options["update"])}
         for b in books:
@@ -172,8 +175,9 @@ def enhance_export(options: dict):
         else:
             print(f"Error: Can't find link to review.")
 
-        if i % 20 == 0 or i == len(books_to_process) - 1:
+        if i % 20 == 19 or i == len(books_to_process) - 1:
             print("saving csv")
             write_csv(
                 books, STANDARD_FIELDNAMES + ["read_dates", "genres"], options["csv"]
             )
+    print("Finished processing!")
