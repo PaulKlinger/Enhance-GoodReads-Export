@@ -5,3 +5,4 @@ types-requests == 2.27.25
 pyinstaller == 5.0.1
 types-Pillow == 9.0.15
 mypy == 0.950
+pre-commit == 2.19.0
