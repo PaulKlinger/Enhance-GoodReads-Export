@@ -1,4 +1,4 @@
-import re
+from collections.abc import Callable
 from typing import Optional
 
 import requests
@@ -16,6 +16,13 @@ from .metadata1 import meta_goodreads_desktop
 # Many thanks to mkb79 for his Audible library,
 # the login code there was a great help
 # https://github.com/mkb79/Audible/blob/master/src/audible/login.py
+
+
+def human_cli_captcha_solver(captcha_data: bytes) -> str:
+    with open("captcha.jpg", "wb") as f:
+        f.write(captcha_data)
+    print("Captcha saved to current directory ('captcha.jpg').")
+    return input("Please enter the characters in the captcha:").strip().lower()
 
 
 def get_next_action_from_soup(
@@ -50,7 +57,11 @@ def get_inputs_from_soup(
     return inputs
 
 
-def login(email: str, password: str) -> requests.Session:
+def login(
+    email: str, password: str, captcha_solver: Optional[Callable[[bytes], str]] = None
+) -> requests.Session:
+    if captcha_solver is None:
+        captcha_solver = human_cli_captcha_solver
     try:
         session = requests.Session()
         session.headers.update(
@@ -81,10 +92,9 @@ def login(email: str, password: str) -> requests.Session:
                 assert isinstance(capt_img, Tag) and isinstance(
                     capt_img["src"], str
                 ), "Failed to find captcha url"
-                with open("captcha.jpg", "wb") as f:
-                    f.write(requests.get(capt_img["src"]).content)
-
-                magic_values["guess"] = str(input("captcha value:")).strip().lower()
+                captcha_data = requests.get(capt_img["src"]).content
+                captcha_guess = captcha_solver(captcha_data)
+                magic_values["guess"] = captcha_guess
                 magic_values["use_image_captcha"] = "true"
                 magic_values["use_audio_captcha"] = "false"
                 magic_values["showPasswordChecked"] = "false"
@@ -114,7 +124,6 @@ def login(email: str, password: str) -> requests.Session:
         raise EnhanceExportException(f"Error logging in: {e}")
 
     except (KeyError, AssertionError) as e:
-        raise e
         raise EnhanceExportException(
             f"error parsing login page, maybe layout changed? {e}"
         )
