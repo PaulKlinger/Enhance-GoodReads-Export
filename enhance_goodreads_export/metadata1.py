@@ -5,17 +5,15 @@ import base64
 import binascii
 import json
 import math
-import os
 import struct
 from datetime import datetime
-from typing import Union
 
 
 # key used for encrypt/decrypt metadata1
 METADATA_KEY: bytes = b"a\x03\x8fp4\x18\x97\x99:\xeb\xe7\x8b\x85\x97$4"
 
 
-def raw_xxtea(v: list, n: int, k: Union[list, tuple]) -> int:
+def raw_xxtea(v: list, n: int, k: list | tuple) -> int:
     assert isinstance(v, list)
     assert isinstance(k, (list, tuple))
     assert isinstance(n, int)
@@ -65,7 +63,7 @@ def raw_xxtea(v: list, n: int, k: Union[list, tuple]) -> int:
     return 1
 
 
-def _bytes_to_longs(data: Union[str, bytes]) -> list[int]:
+def _bytes_to_longs(data: str | bytes) -> list[int]:
     data_bytes = data.encode() if isinstance(data, str) else data
 
     return [
@@ -103,7 +101,7 @@ class XXTEA:
         from PY2 to PY3
     """
 
-    def __init__(self, key: Union[str, bytes]) -> None:
+    def __init__(self, key: str | bytes) -> None:
         """Initializes the inner class data with the given key.
 
         Note:
@@ -116,7 +114,7 @@ class XXTEA:
         self.key = struct.unpack("IIII", key)
         assert len(self.key) == 4
 
-    def encrypt(self, data: Union[str, bytes]) -> bytes:
+    def encrypt(self, data: str | bytes) -> bytes:
         """Encrypts and returns a block of data."""
 
         ldata = round(len(data) / 4)
@@ -125,7 +123,7 @@ class XXTEA:
             raise XXTEAException("Cannot encrypt")
         return _longs_to_bytes(idata)
 
-    def decrypt(self, data: Union[str, bytes]) -> bytes:
+    def decrypt(self, data: str | bytes) -> bytes:
         """Decrypts and returns a block of data."""
 
         ldata = round(len(data) / 4)

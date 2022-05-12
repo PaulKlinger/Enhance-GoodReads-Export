@@ -14,7 +14,7 @@ from .enhance_export import enhance_export
 from .entities import EnhanceExportException
 
 
-class IOQueue(object):
+class IOQueue:
     def __init__(self, queue: queue.Queue):
         self.queue = queue
 

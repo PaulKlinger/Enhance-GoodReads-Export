@@ -1,5 +1,3 @@
-from typing import Optional
-
 import requests
 from bs4 import BeautifulSoup
 from bs4 import Tag
@@ -26,7 +24,7 @@ def human_cli_captcha_solver(captcha_data: bytes) -> str:
 
 
 def get_next_action_from_soup(
-    soup: BeautifulSoup, search_field: Optional[dict[str, str]] = None
+    soup: BeautifulSoup, search_field: dict[str, str] | None = None
 ) -> tuple[str, str]:
     search_field = search_field or {"name": "signIn"}
     form = soup.find("form", search_field) or soup.find("form")
@@ -39,7 +37,7 @@ def get_next_action_from_soup(
 
 
 def get_inputs_from_soup(
-    soup: BeautifulSoup, search_field: Optional[dict[str, str]] = None
+    soup: BeautifulSoup, search_field: dict[str, str] | None = None
 ) -> dict[str, str]:
     """Extracts hidden form input fields from a Amazon login page."""
 
@@ -58,7 +56,7 @@ def get_inputs_from_soup(
 
 
 def login(
-    email: str, password: str, captcha_solver: Optional[CaptchaSolver] = None
+    email: str, password: str, captcha_solver: CaptchaSolver | None = None
 ) -> requests.Session:
     if captcha_solver is None:
         captcha_solver = human_cli_captcha_solver

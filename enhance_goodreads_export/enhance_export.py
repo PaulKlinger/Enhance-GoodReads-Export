@@ -1,7 +1,6 @@
 import csv
 import datetime
 import urllib.parse
-from typing import Optional
 
 import backoff
 import dateutil.parser
@@ -28,7 +27,7 @@ def parse_csv(filename: Path):
             if set(reader.fieldnames) < set(STANDARD_FIELDNAMES):
                 raise ValueError("CSV file does not contain the standard fieldnames!")
             return list(reader)
-    except (ValueError, csv.Error, IOError) as e:
+    except (ValueError, csv.Error, OSError) as e:
         raise EnhanceExportException(f"Error reading export file: {e}")
 
 
@@ -44,7 +43,7 @@ def write_csv(data: list[dict], fieldnames: list[str], filename: Path):
             )
             writer.writeheader()
             writer.writerows(data)
-    except (IOError, csv.Error) as e:
+    except (OSError, csv.Error) as e:
         raise EnhanceExportException(f"Error writing export file: {e}")
 
 
@@ -65,7 +64,7 @@ def make_review_url(review_link: str) -> AbsoluteUrl:
 
 def get_read_dates(
     soup: BeautifulSoup,
-) -> list[tuple[Optional[datetime.datetime], datetime.datetime]]:
+) -> list[tuple[datetime.datetime | None, datetime.datetime]]:
     timeline = soup.find(class_="readingTimeline")
     if not isinstance(timeline, Tag):
         print("Error finding read dates, skipping.")
@@ -98,7 +97,7 @@ def get_read_dates(
         if (state is not None) and (date is not None):
             status_updates.append((date, state))
 
-    date_started: Optional[datetime.datetime] = None
+    date_started: datetime.datetime | None = None
     readings = []
     for date, state in status_updates:
         if state == "end":
@@ -123,7 +122,7 @@ def get_genres(soup):
     return genres
 
 
-def enhance_export(options: dict, captcha_solver: Optional[CaptchaSolver] = None):
+def enhance_export(options: dict, captcha_solver: CaptchaSolver | None = None):
     books = parse_csv(options["csv"])
     session = login(
         options["email"], options["password"], captcha_solver=captcha_solver
