@@ -6,7 +6,8 @@ from .enhance_export import EnhanceExportException
 
 def main():
     argument_parser = argparse.ArgumentParser(
-        description="""Adds genre and (re)reading dates information to a GoodReads export file."""
+        prog="python -m enhance_goodreads_export",
+        description="""Adds genre and (re)reading dates information to a GoodReads export file.""",
     )
     argument_parser.add_argument(
         "-c",
