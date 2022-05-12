@@ -1,7 +1,7 @@
 import argparse
 
-from .enhance_goodreads_export import enhance_export
-from .enhance_goodreads_export import EnhanceExportException
+from .enhance_export import enhance_export
+from .enhance_export import EnhanceExportException
 
 
 def main():
@@ -38,7 +38,7 @@ def main():
     options = vars(argument_parser.parse_args())
 
     if options["gui"]:
-        from .enhance_goodreads_export_gui import launch_gui
+        from .gui import launch_gui
 
         launch_gui()
         return

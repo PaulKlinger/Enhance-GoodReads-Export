@@ -161,7 +161,14 @@ def enhance_export(options: dict, captcha_solver: Optional[CaptchaSolver] = None
         )
         book["read_dates"] = ""
         review_link_tag = soup.find("a", string="My Activity")
-        assert isinstance(review_link_tag, Tag), "Couldn't find review link!"
+
+        if not isinstance(review_link_tag, Tag):
+            print(
+                "Couldn't find review link, this sometimes means login didn't work, try running again"
+            )
+            print("If this continues the page layout might have changed :(")
+            return
+
         review_link = review_link_tag["href"]
 
         if review_link and isinstance(review_link, str):

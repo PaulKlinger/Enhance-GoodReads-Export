@@ -10,7 +10,7 @@ from tkinter.filedialog import askopenfilename
 from PIL import Image
 from PIL import ImageTk
 
-from .enhance_goodreads_export import enhance_export
+from .enhance_export import enhance_export
 from .entities import EnhanceExportException
 
 
@@ -241,11 +241,3 @@ class EnhanceExportGui(tk.Tk):
 def launch_gui() -> None:
     gui = EnhanceExportGui()
     gui.mainloop()
-
-
-if __name__ == "__main__":
-    # Workaround for multiprocessing when using pyinstaller
-    # see https://github.com/pyinstaller/pyinstaller/wiki/Recipe-Multiprocessing
-    multiprocessing.freeze_support()
-
-    launch_gui()
