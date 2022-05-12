@@ -3,6 +3,7 @@
 /env
 __pycache__/
 /dist
+/build
 /.mypy_cache
 # IDE files
 /.idea
