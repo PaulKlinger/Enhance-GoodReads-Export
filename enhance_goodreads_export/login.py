@@ -21,7 +21,7 @@ from .metadata1 import meta_goodreads_desktop
 def human_cli_captcha_solver(captcha_data: bytes) -> str:
     with open("captcha.png", "wb") as f:
         f.write(captcha_data)
-    print("Captcha saved to current directory ('captcha.jpg').")
+    print("Captcha saved to current directory ('captcha.png').")
     return input("Please enter the characters in the captcha:").strip().lower()
 
 
@@ -79,12 +79,12 @@ def login(
         email_signin_url = email_signin_link["href"]
         assert isinstance(email_signin_url, str)
 
-        print(f"Getting email login page {email_signin_url}")
+        print(f"Getting email login page")
         response = session.get(email_signin_url)
         while True:
             soup = BeautifulSoup(response.content, "html.parser")
             if auth_error_tag := soup.find(id="auth-error-message-box"):
-                print(auth_error_tag)
+                print(f"Got authentication error, trying again: {auth_error_tag}")
 
             magic_values = get_inputs_from_soup(soup)
 
