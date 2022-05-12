@@ -17,9 +17,10 @@ jobs:
       - name: Package exe
         run: |
           pyinstaller -F --noconsole .\enhance_export_gui.py
-      - name: Upload the artifacts
-        uses: skx/github-action-publish-binaries@master
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload files to a GitHub release
+        uses: svenstaro/upload-release-action@2.2.1
         with:
-          args: 'dist/*.exe'
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: 'dist/*.exe'
+          tag: ${{ github.ref }}
+          file_glob: true
