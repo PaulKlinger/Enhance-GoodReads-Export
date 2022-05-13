@@ -163,7 +163,8 @@ def enhance_export(options: dict, captcha_solver: CaptchaSolver | None = None):
 
         if not isinstance(review_link_tag, Tag):
             print(
-                "Couldn't find review link, this sometimes means login didn't work, try running again"
+                "Couldn't find review link, this sometimes means login didn't work, "
+                "try running again"
             )
             print("If this continues the page layout might have changed :(")
             return
