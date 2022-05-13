@@ -9,12 +9,12 @@ additional / more accurate graphs (e.g. favorite genres, better pages / day stat
 
 Currently only works with separate GoodReads login (i.e. email and password, not via e.g. facebook). During login you might be asked to solve a captcha.
 
-**[For Windows users there is a standalone executable version with a basic graphical user interface.](https://github.com/PaulKlinger/Enhance-GoodReads-Export/releases/latest/download/enhance_export_gui.exe)**
+**[Windows users can click here to download a standalone executable version with a basic graphical user interface.](https://github.com/PaulKlinger/Enhance-GoodReads-Export/releases/latest/download/enhance_export_gui.exe)**
 
-All others can use the script ("enhance_goodreads_export.py") directly. This requires python 3.10 and the
+All others can use the module directly. This requires python 3.10 and the
 dependencies specified in "requirements/requirements.txt".
 
-Usage instructions for the command line version (output of "python enhance_goodreads_export.py --help"):
+Usage instructions for the command line version (output of "python -m enhance_goodreads_export --help"):
 
 ```commandline
 usage: python -m enhance_goodreads_export [-h] [-c CSV] [-u UPDATE] [-e EMAIL] [-p PASSWORD] [-f] [-g]
