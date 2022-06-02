@@ -6,5 +6,5 @@ types-beautifulsoup4 == 4.11.1
 requests == 2.27.1
 types-requests == 2.27.25
 pyinstaller == 5.0.1
-Pillow == 9.1.0
+Pillow == 9.1.1
 types-Pillow == 9.0.15
