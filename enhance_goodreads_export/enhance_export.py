@@ -18,7 +18,7 @@ from .entities import Path
 from .login import login
 
 
-def parse_csv(filename: Path):
+def parse_csv(filename: Path) -> list[dict[str, str]]:
     try:
         with open(filename, newline="", encoding="utf-8") as file:
             reader = csv.DictReader(file)
@@ -31,7 +31,7 @@ def parse_csv(filename: Path):
         raise EnhanceExportException(f"Error reading export file: {e}")
 
 
-def write_csv(data: list[dict], fieldnames: list[str], filename: Path):
+def write_csv(data: list[dict], fieldnames: list[str], filename: Path) -> None:
     try:
         with open(filename, "w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(
@@ -108,10 +108,10 @@ def get_read_dates(
     return readings
 
 
-def get_genres(soup):
+def get_genres(soup: BeautifulSoup) -> list[tuple[list[str], int]]:
     genrelinks = soup.find_all(class_="bookPageGenreLink")
     genres = []
-    genre = []
+    genre: list[str] = []
     for text in (l.get_text() for l in genrelinks):
         if "users" in text:
             genres.append((genre, int("".join(c for c in text if c.isdigit()))))
@@ -122,8 +122,10 @@ def get_genres(soup):
     return genres
 
 
-def enhance_export(options: dict, captcha_solver: CaptchaSolver | None = None):
+def enhance_export(options: dict, captcha_solver: CaptchaSolver | None = None) -> None:
     books = parse_csv(options["csv"])
+    input_columns = list(books[0].keys())
+
     session = login(
         options["email"], options["password"], captcha_solver=captcha_solver
     )
@@ -184,7 +186,5 @@ def enhance_export(options: dict, captcha_solver: CaptchaSolver | None = None):
 
         if i % 20 == 19 or i == len(books_to_process) - 1:
             print("saving csv")
-            write_csv(
-                books, STANDARD_FIELDNAMES + ["read_dates", "genres"], options["csv"]
-            )
+            write_csv(books, input_columns + ["read_dates", "genres"], options["csv"])
     print("Finished processing!")
