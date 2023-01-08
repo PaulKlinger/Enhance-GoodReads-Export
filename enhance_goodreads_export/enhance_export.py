@@ -1,5 +1,7 @@
 import csv
 import datetime
+import re
+import time
 import urllib.parse
 
 import backoff
@@ -10,7 +12,11 @@ from bs4 import Tag
 
 from .config import BASE_URL
 from .config import BOOK_URL
+from .config import IGNORE_GENRE_SUBSTRINGS
+from .config import IGNORE_GENRES
+from .config import REVIEW_URL
 from .config import STANDARD_FIELDNAMES
+from .config import STATS_URL
 from .entities import AbsoluteUrl
 from .entities import CaptchaSolver
 from .entities import EnhanceExportException
@@ -47,84 +53,96 @@ def write_csv(data: list[dict], fieldnames: list[str], filename: Path) -> None:
         raise EnhanceExportException(f"Error writing export file: {e}")
 
 
-@backoff.on_exception(backoff.expo, requests.exceptions.RequestException, max_tries=10)
+@backoff.on_exception(
+    backoff.expo, requests.exceptions.RequestException, max_tries=3, max_time=2
+)
 def get_with_retry(session, *args, **kwargs) -> requests.Response:
     resp = session.get(*args, timeout=10, **kwargs)
     resp.raise_for_status()
     return resp
 
 
-def make_book_url(book_id: str) -> AbsoluteUrl:
-    return AbsoluteUrl(urllib.parse.urljoin(BOOK_URL, book_id))
+def make_book_url(book_id) -> AbsoluteUrl:
+    return AbsoluteUrl(BOOK_URL.format(book_id=book_id))
 
 
-def make_review_url(review_link: str) -> AbsoluteUrl:
-    return AbsoluteUrl(urllib.parse.urljoin(BASE_URL, review_link))
+def make_review_url(book_id: str) -> AbsoluteUrl:
+    return AbsoluteUrl(REVIEW_URL.format(book_id=book_id))
+
+
+def make_stats_url(book_id: str) -> AbsoluteUrl:
+    return AbsoluteUrl(STATS_URL.format(book_id=book_id))
 
 
 def get_read_dates(
     soup: BeautifulSoup,
 ) -> list[tuple[datetime.datetime | None, datetime.datetime]]:
-    timeline = soup.find(class_="readingTimeline")
-    if not isinstance(timeline, Tag):
-        print("Error finding read dates, skipping.")
-        return []
-
-    status_updates = []
-    for entry in timeline.findAll(class_="readingTimeline__text"):
-        lines = entry.get_text().split("\n")
-        state = None
-        date = None
-        for line in lines:
-            if "Finished Reading" in line:
-                state = "end"
-            elif "Started Reading" in line:
-                state = "start"
-            else:
-                try:
-                    # dateutil.parser replaces undetermined fields with those in the default.
-                    # this way dates which just give the year (e.g. "2007") are set to e.g. "2007-01-01".
-                    # Without this they would be set to the current day and month in the given year.
-                    # This is usefull as dates on the first of january can be automatically distributed over the year
-                    # in bookstats.
-                    # (Might be useful to handle these differently but afaik goodreads previously automatically set
-                    # "2007" to "2007-01-01", so could be tricky.)
-                    date = dateutil.parser.parse(
-                        line, default=datetime.datetime(1900, 1, 1)
-                    )
-                except ValueError:
-                    continue
-        if (state is not None) and (date is not None):
-            status_updates.append((date, state))
-
-    date_started: datetime.datetime | None = None
     readings = []
-    for date, state in status_updates:
-        if state == "end":
-            readings.append((date_started, date))
-            date_started = None
-        elif state == "start":
-            date_started = date
+    for row in soup.select(".readingSessionRow"):
+        start_date, end_date = tuple(
+            dateutil.parser.parse(date_str, default=datetime.datetime(1900, 1, 1))
+            if (
+                date_str := "".join(
+                    inputs[0].text
+                    if (
+                        inputs := row.select(
+                            f".{start_end}{date_part} .setDate[selected='selected']"
+                        )
+                    )
+                    else ""
+                    for date_part in [
+                        "Day",
+                        "Month",
+                        "Year",
+                    ]
+                )
+            )
+            else None
+            for start_end in ["start", "end"]
+        )
+        if end_date is not None:
+            readings.append((start_date, end_date))
     return readings
 
 
+def valid_genre(genre: str) -> bool:
+    if genre in IGNORE_GENRES or any((s in genre) for s in IGNORE_GENRE_SUBSTRINGS):
+        return False
+    if genre.isnumeric():
+        return False
+    return True
+
+
 def get_genres(soup: BeautifulSoup) -> list[tuple[list[str], int]]:
-    genrelinks = soup.find_all(class_="bookPageGenreLink")
+    genrelinks = soup.find_all(class_="shelfStat")
     genres = []
     genre: list[str] = []
-    for text in (l.get_text() for l in genrelinks):
-        if "users" in text:
-            genres.append((genre, int("".join(c for c in text if c.isdigit()))))
-            genre = []
-        else:
-            genre.append(text)
+    for genre_link in genrelinks:
+        lines = [l.strip() for l in genre_link.get_text().split("\n") if l.strip()]
+        if lines[0] in IGNORE_GENRES:
+            continue
+        if len(lines) == 2:
+            genres.append(
+                (lines[0].strip(), int("".join(c for c in lines[1] if c.isdigit())))
+            )
+    genres.sort(key=lambda x: x[1], reverse=True)
+    # genres used to support nested subgenres, this doesn't exist on the new book page.
+    # To match the old format, treat all genres as 1 level (wrap name in list)
+    genres = [([g[0]], g[1]) for g in genres]
 
-    return genres
+    # filter out useless shelves (e.g. to-read) and ones with less than 10 people
+    genres = [g for g in genres if g[1] >= 10 and valid_genre(g[0][0])]
+    # format genre name
+    genres = [(g[0].replace("-", " ").title(), g[1]) for g in genres]
+    return genres[:20]
 
 
 def enhance_export(options: dict, captcha_solver: CaptchaSolver | None = None) -> None:
     books = parse_csv(options["csv"])
     input_columns = list(books[0].keys())
+    output_columns = input_columns + [
+        c for c in ["read_dates", "genres", "n_ratings"] if not c in input_columns
+    ]
 
     session = login(
         options["email"], options["password"], captcha_solver=captcha_solver
@@ -147,44 +165,48 @@ def enhance_export(options: dict, captcha_solver: CaptchaSolver | None = None) -
         for b in books
         if (
             options["force"]
-            or (not b.get("genres", None) and not b.get("read_dates", None))
+            or (
+                not b.get("genres", None)
+                and not b.get("read_dates", None)
+                and not b.get("n_reviews", None)
+            )
         )
     ]
     for i, book in enumerate(books_to_process):
         print(
             f"Book {i+1} of {len(books_to_process)}: {book['Title']} ({book['Author']})"
         )
-        page = get_with_retry(session, make_book_url(book["Book Id"]))
-        soup = BeautifulSoup(page.content, "html.parser")
-        genres = get_genres(soup)
+        book_id = book["Book Id"]
+
+        review_page = get_with_retry(session, make_review_url(book_id))
+        review_soup = BeautifulSoup(review_page.content, "html.parser")
+        read_dates = get_read_dates(review_soup)
+        book["read_dates"] = ";".join(
+            ",".join(d.strftime("%Y-%m-%d") if d else "" for d in reading)
+            for reading in read_dates
+        )
+
+        book_page = get_with_retry(session, make_book_url(book_id)).content.decode(
+            "utf-8"
+        )
+        n_ratings_match = re.search(r'"ratingsCount"\s*:\s*(\d+)', book_page)
+        if n_ratings_match is None:
+            raise ValueError("Did not find number of ratings in book page!")
+        book["n_ratings"] = n_ratings_match.group(1)
+
+        shelves_url_match = re.search('"[^"]*(work/shelves[^"]+)"', book_page)
+        if shelves_url_match is None:
+            raise ValueError("Did not find link to shelves page on book page!")
+        shelves_url = AbsoluteUrl(f"{BASE_URL}/{shelves_url_match.group(1)}")
+
+        genres_page = get_with_retry(session, shelves_url)
+        genres_soup = BeautifulSoup(genres_page.content, "html.parser")
+        genres = get_genres(genres_soup)
         book["genres"] = ";".join(
             f"{','.join(genre[0])}|{genre[1]}" for genre in genres
         )
-        book["read_dates"] = ""
-        review_link_tag = soup.find("a", string="My Activity")
-
-        if not isinstance(review_link_tag, Tag):
-            print(
-                "Couldn't find review link, this sometimes means login didn't work, "
-                "try running again"
-            )
-            print("If this continues the page layout might have changed :(")
-            return
-
-        review_link = review_link_tag["href"]
-
-        if review_link and isinstance(review_link, str):
-            review_page = get_with_retry(session, make_review_url(review_link))
-            review_soup = BeautifulSoup(review_page.content, "html.parser")
-            read_dates = get_read_dates(review_soup)
-            book["read_dates"] = ";".join(
-                ",".join(d.strftime("%Y-%m-%d") if d else "" for d in reading)
-                for reading in read_dates
-            )
-        else:
-            print(f"Error: Can't find link to review.")
 
         if i % 20 == 19 or i == len(books_to_process) - 1:
             print("saving csv")
-            write_csv(books, input_columns + ["read_dates", "genres"], options["csv"])
+            write_csv(books, output_columns, options["csv"])
     print("Finished processing!")
