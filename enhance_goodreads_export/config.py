@@ -10,8 +10,8 @@ REVIEW_URL = AbsoluteUrl("https://www.goodreads.com/review/edit/{book_id}")
 STATS_URL = AbsoluteUrl("https://www.goodreads.com/book/stats?id={book_id}")
 
 BASE_URL = AbsoluteUrl("https://www.goodreads.com")
-SIGNIN_URL = AbsoluteUrl("https://www.goodreads.com/user/sign_in")
-SIGNIN_POST_URL = AbsoluteUrl("https://www.goodreads.com/ap/signin")
+POST_LOGIN_URL = AbsoluteUrl("https://www.goodreads.com/")
+LOGIN_URL = AbsoluteUrl("https://www.goodreads.com/user/sign_in")
 
 
 STANDARD_FIELDNAMES = [

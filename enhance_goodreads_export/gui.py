@@ -7,9 +7,6 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter.filedialog import askopenfilename
 
-from PIL import Image
-from PIL import ImageTk
-
 from .enhance_export import enhance_export
 from .entities import EnhanceExportException
 
@@ -26,11 +23,10 @@ class IOQueue:
 
 
 def human_tk_captcha_solver(
-    captcha_data: bytes,
     captcha_data_queue: queue.Queue,
     captcha_guess_queue: queue.Queue,
 ) -> str:
-    captcha_data_queue.put(captcha_data)
+    captcha_data_queue.put(True)
     return captcha_guess_queue.get(block=True)
 
 
@@ -45,7 +41,7 @@ def task(
     try:
         enhance_export(
             options,
-            captcha_solver=functools.partial(
+            login_prompt=functools.partial(
                 human_tk_captcha_solver,
                 captcha_data_queue=captcha_data_queue,
                 captcha_guess_queue=captcha_guess_queue,
@@ -113,14 +109,6 @@ class EnhanceExportGui(tk.Tk):
         )
         self.update_pathlabel.grid(row=1, column=1, columnspan=10, sticky=tk.W)
 
-        self.emaillabel = ttk.Label(self.frame, text="email:")
-        self.emailentry = ttk.Entry(self.frame)
-        self.emaillabel.grid(row=2, column=0)
-        self.emailentry.grid(row=2, column=1)
-        self.passwordlabel = ttk.Label(self.frame, text="password")
-        self.passwordentry = ttk.Entry(self.frame)
-        self.passwordlabel.grid(row=3, column=0)
-        self.passwordentry.grid(row=3, column=1)
         self.forcelabel = ttk.Label(self.frame, text="process all")
         self.forceentry = ttk.Checkbutton(self.frame)
         self.forceentry.state(["!alternate", "!selected"])
@@ -151,31 +139,26 @@ class EnhanceExportGui(tk.Tk):
         self.captcha_guess_queue = multiprocessing.Queue()
 
     def submit_captcha(self):
-        captcha_guess = self.toplevel_captcha_guess_input.get()
-        self.captcha_guess_queue.put(captcha_guess)
+        self.captcha_guess_queue.put(True)
         self.wm_attributes("-disabled", False)
         self.toplevel_dialog.destroy()
         self.deiconify()
 
-    def captcha_window(self, captcha_data: bytes) -> None:
+    def captcha_window(self) -> None:
         self.wm_attributes("-disabled", True)
         self.toplevel_dialog = tk.Toplevel(self)
-        self.toplevel_dialog.minsize(300, 100)
+        self.toplevel_dialog.geometry(f"+{self.winfo_x()}+{self.winfo_y()}")
+        self.toplevel_dialog.minsize(300, 50)
         self.toplevel_dialog.transient(self)
         self.toplevel_dialog.protocol("WM_DELETE_WINDOW", self.submit_captcha)
 
-        self.img = ImageTk.PhotoImage(Image.open(io.BytesIO(captcha_data)))
-        self.toplevel_captcha = tk.Label(self.toplevel_dialog, image=self.img)
-        self.toplevel_captcha.pack(side="top", fill="both", expand=True)
-
         self.toplevel_submit = ttk.Button(
-            self.toplevel_dialog, text="Submit", command=self.submit_captcha
+            self.toplevel_dialog, text="I've logged in", command=self.submit_captcha
         )
         self.toplevel_submit.pack(side="bottom")
-        self.toplevel_captcha_guess_input = ttk.Entry(self.toplevel_dialog)
-        self.toplevel_captcha_guess_input.pack(side="bottom")
         self.toplevel_dialog_label = ttk.Label(
-            self.toplevel_dialog, text="Please enter the characters shown above"
+            self.toplevel_dialog,
+            text="Please log in to GoodReads \n in the browser window that just opened",
         )
         self.toplevel_dialog_label.pack(side="bottom")
 
@@ -196,8 +179,6 @@ class EnhanceExportGui(tk.Tk):
             if not self.update_pathlabel["text"].startswith("[")
             else "",
             "force": self.forceentry.instate(["selected"]),
-            "email": self.emailentry.get(),
-            "password": self.passwordentry.get(),
         }
 
         process = multiprocessing.Process(
@@ -215,11 +196,11 @@ class EnhanceExportGui(tk.Tk):
         def check_if_finished_or_captcha():
             if process.is_alive():
                 try:
-                    captcha_data = self.captcha_data_queue.get_nowait()
+                    self.captcha_data_queue.get_nowait()
                 except queue.Empty:
                     pass
                 else:
-                    self.captcha_window(captcha_data)
+                    self.captcha_window()
                 self.after(300, check_if_finished_or_captcha)
             else:
                 self.change_all_state(tk.NORMAL)
@@ -230,8 +211,6 @@ class EnhanceExportGui(tk.Tk):
     def change_all_state(self, new_state) -> None:
         self.filebutton["state"] = new_state
         self.update_filebutton["state"] = new_state
-        self.emailentry["state"] = new_state
-        self.passwordentry["state"] = new_state
         self.forceentry["state"] = new_state
         if new_state == tk.NORMAL:
             self.forceentry.state(["!alternate", "!selected"])

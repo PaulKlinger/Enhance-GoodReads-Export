@@ -1,14 +1,12 @@
 import csv
 import datetime
 import re
-import time
-import urllib.parse
+from typing import Callable
 
 import backoff
 import dateutil.parser
 import requests
 from bs4 import BeautifulSoup
-from bs4 import Tag
 
 from .config import BASE_URL
 from .config import BOOK_URL
@@ -18,7 +16,6 @@ from .config import REVIEW_URL
 from .config import STANDARD_FIELDNAMES
 from .config import STATS_URL
 from .entities import AbsoluteUrl
-from .entities import CaptchaSolver
 from .entities import EnhanceExportException
 from .entities import Path
 from .login import login
@@ -116,7 +113,6 @@ def valid_genre(genre: str) -> bool:
 def get_genres(soup: BeautifulSoup) -> list[tuple[list[str], int]]:
     genrelinks = soup.find_all(class_="shelfStat")
     genres = []
-    genre: list[str] = []
     for genre_link in genrelinks:
         lines = [l.strip() for l in genre_link.get_text().split("\n") if l.strip()]
         if lines[0] in IGNORE_GENRES:
@@ -174,16 +170,14 @@ def update_book_data(book: dict[str, str], session: requests.Session) -> None:
     book["genres"] = ";".join(f"{','.join(genre[0])}|{genre[1]}" for genre in genres)
 
 
-def enhance_export(options: dict, captcha_solver: CaptchaSolver | None = None) -> None:
+def enhance_export(options: dict, login_prompt: Callable | None = None) -> None:
     books = parse_csv(options["csv"])
     input_columns = list(books[0].keys())
     output_columns = input_columns + [
         c for c in ["read_dates", "genres", "n_ratings"] if not c in input_columns
     ]
 
-    session = login(
-        options["email"], options["password"], captcha_solver=captcha_solver
-    )
+    session = login(login_prompt=login_prompt)
     if options["update"]:
         old_books_by_id = {b["Book Id"]: b for b in parse_csv(options["update"])}
         for b in books:

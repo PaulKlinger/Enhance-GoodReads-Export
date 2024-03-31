@@ -25,10 +25,6 @@ def main():
             "(output will still be written to the file specified in --csv)"
         ),
     )
-    argument_parser.add_argument(
-        "-e", "--email", help="the email you use to login to GoodReads"
-    )
-    argument_parser.add_argument("-p", "--password", help="your GoodReads Password")
 
     argument_parser.add_argument(
         "-f",
@@ -50,11 +46,8 @@ def main():
         launch_gui()
         return
 
-    if not all((options["email"], options["password"], options["csv"])):
-        print(
-            "You need to provide the path to the export file, "
-            "an email address and a password!"
-        )
+    if not options["csv"]:
+        print("You need to provide the path to the export file!")
         print()
         argument_parser.print_help()
         return
