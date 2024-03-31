@@ -7,17 +7,27 @@ Currently adds reading dates (start and finish, including re-readings) and genre
 When analyzing the export file in [Bookstats](https://almoturg.com/bookstats/) this data is used to show
 additional / more accurate graphs (e.g. favorite genres, better pages / day stats,...).
 
-Currently only works with separate GoodReads login (i.e. email and password, not via e.g. facebook). During login you might be asked to solve a captcha.
+To login, the tool will open a browser window on the goodreads login page. Log in with your account details and then
+press "I've logged in" (if you're using the GUI version), or press enter in the terminal (if you're on the command line).
 
 **[Windows users can click here to download a standalone executable version with a basic graphical user interface.](https://github.com/PaulKlinger/Enhance-GoodReads-Export/releases/latest/download/enhance_export_gui.exe)**
 
-All others can use the module directly. This requires python 3.10 and the
-dependencies specified in "requirements/requirements.txt".
+All others can use the module directly. This requires python 3.12 and the
+dependencies specified in "requirements/requirements.txt". I.e., clone the repository, switch into the the repository
+root folder, run
+```bash
+python -m pip install -r requirements/requirements.txt
+```
+in a python 3.12 venv and then run
+```bash
+python -m enhance_goodreads_export -c my_export_file.csv
+```
+
 
 Usage instructions for the command line version (output of "python -m enhance_goodreads_export --help"):
 
 ```commandline
-usage: python -m enhance_goodreads_export [-h] [-c CSV] [-u UPDATE] [-e EMAIL] [-p PASSWORD] [-f] [-g]
+usage: python -m enhance_goodreads_export [-h] [-c CSV] [-u UPDATE] [-f] [-g]
 
 Adds genre and (re)reading dates information to a GoodReads export file.
 
@@ -26,10 +36,6 @@ options:
   -c CSV, --csv CSV     path of your GoodReads export file (the new columns will be added to this file)
   -u UPDATE, --update UPDATE
                         (optional) path of previously enhanced GoodReads export file to update (output will still be written to the file specified in --csv)
-  -e EMAIL, --email EMAIL
-                        the email you use to login to GoodReads
-  -p PASSWORD, --password PASSWORD
-                        your GoodReads Password
   -f, --force           process all books (by default only those without genre information are processed)
   -g, --gui             show GUI
 ```
