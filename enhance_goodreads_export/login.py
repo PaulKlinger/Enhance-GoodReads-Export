@@ -35,10 +35,13 @@ def login(login_prompt: Callable | None) -> requests.Session:
 
     print("Getting cookies and setting up session")
     cookies = driver.get_cookies()
+    user_agent = driver.execute_script("return navigator.userAgent;")
     driver.close()
 
     session = requests.Session()
     for cookie in cookies:
         session.cookies.set(cookie["name"], cookie["value"])
+
+    session.headers.update({"user-agent": user_agent})
 
     return session
