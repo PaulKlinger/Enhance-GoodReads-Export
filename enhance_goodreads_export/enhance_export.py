@@ -208,7 +208,13 @@ def enhance_export(options: dict, login_prompt: Callable | None = None) -> None:
         print(
             f"Book {i+1} of {len(books_to_process)}: {book['Title']} ({book['Author']})"
         )
-        update_book_data(book, session)
+        try:
+            update_book_data(book, session)
+        except Exception as e:
+            if options["ignore_errors"]:
+                print(f"Error updating book, skipping: {e}")
+            else:
+                raise e
 
         if i % 20 == 19 or i == len(books_to_process) - 1:
             print("saving csv")

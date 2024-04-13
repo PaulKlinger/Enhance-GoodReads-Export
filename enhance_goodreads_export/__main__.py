@@ -36,6 +36,13 @@ def main():
         ),
     )
 
+    argument_parser.add_argument(
+        "-i",
+        "--ignore_errors",
+        action="store_true",
+        help="ignore errors updating individual books and keep processing",
+    )
+
     argument_parser.add_argument("-g", "--gui", action="store_true", help="show GUI")
 
     options = vars(argument_parser.parse_args())
