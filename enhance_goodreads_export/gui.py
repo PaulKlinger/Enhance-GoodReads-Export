@@ -120,10 +120,16 @@ class EnhanceExportGui(tk.Tk):
         self.forceentry.grid(row=4, column=1)
         forcehelp.grid(row=4, column=2)
 
+        self.ignoreerrorslabel = ttk.Label(self.frame, text="ignore errors")
+        self.ignoreerrorsentry = ttk.Checkbutton(self.frame)
+        self.ignoreerrorsentry.state(["!alternate", "!selected"])
+        self.ignoreerrorslabel.grid(row=5, column=0)
+        self.ignoreerrorsentry.grid(row=5, column=1)
+
         self.start_button = ttk.Button(
             self.frame, text="start processing", command=self.start_processing
         )
-        self.start_button.grid(row=5, column=0, columnspan=2, pady=5)
+        self.start_button.grid(row=6, column=0, columnspan=2, pady=5)
 
         self.frame.grid_columnconfigure(0, weight=0)
         self.frame.grid_columnconfigure(1, weight=0)
@@ -179,6 +185,7 @@ class EnhanceExportGui(tk.Tk):
             if not self.update_pathlabel["text"].startswith("[")
             else "",
             "force": self.forceentry.instate(["selected"]),
+            "ignore_errors": self.ignoreerrorsentry.instate(["selected"]),
         }
 
         process = multiprocessing.Process(
@@ -212,8 +219,10 @@ class EnhanceExportGui(tk.Tk):
         self.filebutton["state"] = new_state
         self.update_filebutton["state"] = new_state
         self.forceentry["state"] = new_state
+        self.ignoreerrorsentry["state"] = new_state
         if new_state == tk.NORMAL:
             self.forceentry.state(["!alternate", "!selected"])
+            self.ignoreerrorsentry.state(["!alternate", "!selected"])
         self.start_button["state"] = new_state
 
 
