@@ -99,6 +99,7 @@ def get_read_dates(
         )
         if end_date is not None:
             readings.append((start_date, end_date))
+    readings.sort(key=lambda x: x[1])
     return readings
 
 
