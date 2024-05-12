@@ -27,7 +27,7 @@ python -m enhance_goodreads_export -c my_export_file.csv
 Usage instructions for the command line version (output of "python -m enhance_goodreads_export --help"):
 
 ```commandline
-usage: python -m enhance_goodreads_export [-h] [-c CSV] [-u UPDATE] [-f] [-g]
+usage: python -m enhance_goodreads_export [-h] [-c CSV] [-u UPDATE] [-f] [-i] [-g]
 
 Adds genre and (re)reading dates information to a GoodReads export file.
 
@@ -37,12 +37,13 @@ options:
   -u UPDATE, --update UPDATE
                         (optional) path of previously enhanced GoodReads export file to update (output will still be written to the file specified in --csv)
   -f, --force           process all books (by default only those without genre information are processed)
+  -i, --ignore_errors   ignore errors updating individual books and keep processing
   -g, --gui             show GUI
 ```
 
 The tool adds two additional columns to the .csv file: "read_dates" and "genres"
 Their format is as follows:
 
-* read_dates: "START_DATE_1,END_DATE_1;START_DATE_2,END_DATE_2;..." where the dates are in YYYY-MM-DD format
+* read_dates: "START_DATE_1,END_DATE_1;START_DATE_2,END_DATE_2;..." where the dates are in YYYY-MM-DD format. Readings are sorted in ascending order of the end date.
 * genres: "GENRE,SUBGENRE,SUBSUBGENRE,(...)|NUM_USERS;GENRE,..." where NUM_USERS is the number of users that have
 added the book to that shelf
