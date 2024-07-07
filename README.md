@@ -27,7 +27,7 @@ python -m enhance_goodreads_export -c my_export_file.csv
 Usage instructions for the command line version (output of "python -m enhance_goodreads_export --help"):
 
 ```commandline
-usage: python -m enhance_goodreads_export [-h] [-c CSV] [-u UPDATE] [-f] [-i] [-g]
+usage: python -m enhance_goodreads_export [-h] [-c CSV] [-u UPDATE] [-f] [-i] [--genre_votes GENRE_VOTES] [-g]
 
 Adds genre and (re)reading dates information to a GoodReads export file.
 
@@ -38,6 +38,8 @@ options:
                         (optional) path of previously enhanced GoodReads export file to update (output will still be written to the file specified in --csv)
   -f, --force           process all books (by default only those without genre information are processed)
   -i, --ignore_errors   ignore errors updating individual books and keep processing
+  --genre_votes GENRE_VOTES
+                        min number of votes needed to add a genre, either integer or percentage of highest voted genre in the book (e.g. "11" or "10%")
   -g, --gui             show GUI
 ```
 

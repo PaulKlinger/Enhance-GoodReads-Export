@@ -133,7 +133,7 @@ class EnhanceExportGui(tk.Tk):
         genrehelp = ttk.Label(
             self.frame,
             text=(
-                '(number of votes, or percentage of max votes to add a genre, e.g. "10"'
+                '(number of votes, or % most voted genre, to add a genre, e.g. "10"'
                 ' or "11%")'
             ),
         )
