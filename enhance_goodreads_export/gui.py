@@ -126,10 +126,25 @@ class EnhanceExportGui(tk.Tk):
         self.ignoreerrorslabel.grid(row=5, column=0)
         self.ignoreerrorsentry.grid(row=5, column=1)
 
+        self.genrelabel = ttk.Label(self.frame, text="min genre votes")
+        self.genreentry = ttk.Entry(self.frame, width=5)
+        self.genreentry.insert(0, "10")
+        self.genreentry.state(["!alternate"])
+        genrehelp = ttk.Label(
+            self.frame,
+            text=(
+                '(number of votes, or percentage of max votes to add a genre, e.g. "10"'
+                ' or "11%")'
+            ),
+        )
+        self.genrelabel.grid(row=6, column=0)
+        self.genreentry.grid(row=6, column=1)
+        genrehelp.grid(row=6, column=2)
+
         self.start_button = ttk.Button(
             self.frame, text="start processing", command=self.start_processing
         )
-        self.start_button.grid(row=6, column=0, columnspan=2, pady=5)
+        self.start_button.grid(row=7, column=0, columnspan=2, pady=5)
 
         self.frame.grid_columnconfigure(0, weight=0)
         self.frame.grid_columnconfigure(1, weight=0)
@@ -186,6 +201,7 @@ class EnhanceExportGui(tk.Tk):
             else "",
             "force": self.forceentry.instate(["selected"]),
             "ignore_errors": self.ignoreerrorsentry.instate(["selected"]),
+            "genre_votes": self.genreentry.get() or None,
         }
 
         process = multiprocessing.Process(
@@ -220,6 +236,7 @@ class EnhanceExportGui(tk.Tk):
         self.update_filebutton["state"] = new_state
         self.forceentry["state"] = new_state
         self.ignoreerrorsentry["state"] = new_state
+        self.genreentry["state"] = new_state
         if new_state == tk.NORMAL:
             self.forceentry.state(["!alternate", "!selected"])
             self.ignoreerrorsentry.state(["!alternate", "!selected"])

@@ -32,6 +32,7 @@ IGNORE_GENRES = {
     "books-i-own",
     "default",
     "wish-list",
+    "wishlist",
     "on-hold",
     "library",
     "netgalley",
@@ -56,6 +57,14 @@ IGNORE_GENRES = {
     "to-buy",
     "maybe",
     "might-read",
+    "did not finish",
+    "great",
+    "bad",
+    "good",
+    "soon",
+    "physical tbr",
+    "free",
+    "gave up on",
 }
 
-IGNORE_GENRE_SUBSTRINGS = {"read-in", "to-read", "read-", "-read", "-tbr", "tbr-"}
+IGNORE_GENRE_SUBSTRINGS = {"read", "-tbr", "tbr-"}

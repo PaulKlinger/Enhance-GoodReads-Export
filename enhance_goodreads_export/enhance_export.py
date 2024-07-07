@@ -103,21 +103,32 @@ def get_read_dates(
     return readings
 
 
-def valid_genre(genre: str) -> bool:
-    if genre in IGNORE_GENRES or any((s in genre) for s in IGNORE_GENRE_SUBSTRINGS):
+def valid_genre(genre: str, author) -> bool:
+    genre = genre.lower()
+    author_parts = {
+        m.group(0)
+        for s in author.split(" ")
+        if (m := re.match(r"\w{3,}", s)) is not None
+    }
+    if (genre in IGNORE_GENRES) or any(
+        (s in genre) for s in (IGNORE_GENRE_SUBSTRINGS | author_parts)
+    ):
         return False
     if genre.isnumeric():
         return False
     return True
 
 
-def get_genres(soup: BeautifulSoup) -> list[tuple[list[str], int]]:
+def get_genres(
+    soup: BeautifulSoup,
+    min_n_votes: int | None,
+    min_n_votes_frac: float | None,
+    author: str,
+) -> list[tuple[list[str], int]]:
     genrelinks = soup.find_all(class_="shelfStat")
     genres = []
     for genre_link in genrelinks:
         lines = [l.strip() for l in genre_link.get_text().split("\n") if l.strip()]
-        if lines[0] in IGNORE_GENRES:
-            continue
         if len(lines) == 2:
             genres.append(
                 (lines[0].strip(), int("".join(c for c in lines[1] if c.isdigit())))
@@ -126,8 +137,19 @@ def get_genres(soup: BeautifulSoup) -> list[tuple[list[str], int]]:
     # format genre name
     genres = [(g[0].replace("-", " ").title(), g[1]) for g in genres]
 
-    # filter out useless shelves (e.g. to-read) and ones with less than 10 people
-    genres = [g for g in genres if g[1] >= 10 and valid_genre(g[0])]
+    # filter out useless shelves (e.g. to-read)
+    genres = [g for g in genres if valid_genre(g[0], author)]
+
+    # filter out genres with too few votes
+    # (this is separate so we take the fraction of *valid* genres)
+    max_votes = max([g[1] for g in genres] + [0])
+
+    genres = [
+        g
+        for g in genres
+        if (min_n_votes is None or g[1] > min_n_votes)
+        and (min_n_votes_frac is None or g[1] >= min_n_votes_frac * max_votes)
+    ]
 
     # genres used to support nested subgenres, this doesn't exist on the new book page.
     # To match the old format, treat all genres as 1 level (wrap name in list)
@@ -137,8 +159,11 @@ def get_genres(soup: BeautifulSoup) -> list[tuple[list[str], int]]:
 
 
 @backoff.on_exception(backoff.expo, Exception, max_tries=3, max_time=2)
-def update_book_data(book: dict[str, str], session: requests.Session) -> None:
+def update_book_data(
+    book: dict[str, str], session: requests.Session, options: dict
+) -> None:
     book_id = book["Book Id"]
+    author = book.get("Author", "")
 
     review_page = get_with_retry(session, make_review_url(book_id))
     review_soup = BeautifulSoup(review_page.content, "html.parser")
@@ -167,11 +192,32 @@ def update_book_data(book: dict[str, str], session: requests.Session) -> None:
 
     genres_page = get_with_retry(session, shelves_url)
     genres_soup = BeautifulSoup(genres_page.content, "html.parser")
-    genres = get_genres(genres_soup)
+    genres = get_genres(
+        genres_soup,
+        min_n_votes=options.get("genres_min_n_votes"),
+        min_n_votes_frac=options.get("genres_min_n_votes_frac"),
+        author=author,
+    )
     book["genres"] = ";".join(f"{','.join(genre[0])}|{genre[1]}" for genre in genres)
 
 
 def enhance_export(options: dict, login_prompt: Callable | None = None) -> None:
+    if "genre_votes" in options:
+        try:
+            genre_votes = float(
+                options["genre_votes"].strip().removesuffix("%").strip()
+            )
+        except ValueError:
+            raise ValueError(
+                "Invalid value for genre_votes option, either number or a percentage"
+                " value must be provided"
+            )
+
+        if options["genre_votes"].endswith("%"):
+            options["genres_min_n_votes_frac"] = genre_votes / 100
+        else:
+            options["genres_min_n_votes"] = int(genre_votes)
+
     books = parse_csv(options["csv"])
     input_columns = list(books[0].keys())
     output_columns = input_columns + [
@@ -210,7 +256,7 @@ def enhance_export(options: dict, login_prompt: Callable | None = None) -> None:
             f"Book {i+1} of {len(books_to_process)}: {book['Title']} ({book['Author']})"
         )
         try:
-            update_book_data(book, session)
+            update_book_data(book, session, options)
         except Exception as e:
             if options["ignore_errors"]:
                 print(f"Error updating book, skipping: {e}")

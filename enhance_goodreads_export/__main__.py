@@ -43,6 +43,14 @@ def main():
         help="ignore errors updating individual books and keep processing",
     )
 
+    argument_parser.add_argument(
+        "--genre_votes",
+        help=(
+            "min number of votes needed to add a genre, either integer or percentage of"
+            ' highest voted genre in the book (e.g. "11" or "10%%")'
+        ),
+    )
+
     argument_parser.add_argument("-g", "--gui", action="store_true", help="show GUI")
 
     options = vars(argument_parser.parse_args())
