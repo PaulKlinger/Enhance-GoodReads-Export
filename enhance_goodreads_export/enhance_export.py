@@ -5,6 +5,7 @@ from typing import Callable
 
 import backoff
 import dateutil.parser
+import numpy as np
 import requests
 from bs4 import BeautifulSoup
 
@@ -179,8 +180,10 @@ def update_book_data(
     )
     if n_ratings_match is None:
         print(book_page)
-        raise ValueError("Did not find number of ratings in book page!")
-    book["n_ratings"] = n_ratings_match.group(1)
+        print("Did not find number of ratings in book page, not adding number of ratings!")
+        book["n_ratings"] = np.nan
+    else:
+        book['n_ratings'] = n_ratings_match.group(1)
 
     shelves_url_match = re.search(
         '(?:"|&quot;)[^"&]*(work/shelves[^"&]+)(?:"|&quot;)', book_page
