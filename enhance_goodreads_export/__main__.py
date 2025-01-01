@@ -45,6 +45,7 @@ def main():
 
     argument_parser.add_argument(
         "--genre_votes",
+        default=argparse.SUPPRESS,
         help=(
             "min number of votes needed to add a genre, either integer or percentage of"
             ' highest voted genre in the book (e.g. "11" or "10%%")'
